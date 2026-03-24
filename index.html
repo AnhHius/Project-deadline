@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibManager Pro - Hệ Thống Quản Lý Thư Viện</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="auth-view" class="auth-containerhidden">
+        
+        <div id="login-form" class="auth-box">
+            <h2><i class="fas fa-lock"></i> ĐĂNG NHẬP</h2>
+            <p>Hệ Thống Quản Lý Thư Viện</p>
+            <div class="input-group">
+                <i class="fas fa-envelope log-icon"></i>
+                <input type="text" id="login-email" placeholder="Email / Tên đăng nhập...">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-key log-icon"></i>
+                <input type="password" id="login-pass" placeholder="Mật khẩu...">
+            </div>
+            <button class="btn-primary-auth" onclick="authController.login()">Đăng Nhập <i class="fas fa-arrow-right log-icon-btn"></i></button>
+            <p class="auth-footer">
+                <a href="#" onclick="authController.toggleForm('forgot')">Quên mật khẩu?</a> | 
+                <a href="#" onclick="authController.toggleForm('register')">Đăng ký ngay</a>
+            </p>
+        </div>
+
+        <div id="register-form" class="auth-box hidden">
+            <h2><i class="fas fa-user-plus"></i> ĐĂNG KÝ TÀI KHOẢN</h2>
+            <p>Trở thành thành viên của LibManager</p>
+            <div class="input-group">
+                <i class="fas fa-user log-icon"></i>
+                <input type="text" id="reg-name" placeholder="Họ và tên...">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-envelope log-icon"></i>
+                <input type="text" id="reg-email" placeholder="Email / Tên đăng nhập...">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-key log-icon"></i>
+                <input type="password" id="reg-pass" placeholder="Mật khẩu...">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-users log-icon"></i>
+                <select id="reg-role">
+                    <option value="READER">Độc giả (Mặc định)</option>
+                    <option value="LIBRARIAN">Thủ thư (Cần có mã thuvien_)</option>
+                </select>
+            </div>
+            <button class="btn-success-auth" onclick="authController.register()">Đăng Ký <i class="fas fa-check log-icon-btn"></i></button>
+            <p class="auth-footer"><a href="#" onclick="authController.toggleForm('login')">⬅ Trở lại Đăng nhập</a></p>
+        </div>
+
+        <div id="forgot-form" class="auth-box hidden">
+            <h2><i class="fas fa-question-circle"></i> QUÊN MẬT KHẨU</h2>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">Nhập email của bạn để lấy lại mật khẩu.</p>
+            <div class="input-group">
+                <i class="fas fa-envelope log-icon"></i>
+                <input type="email" id="forgot-email" placeholder="Nhập Email đã đăng ký...">
+            </div>
+            <button class="btn-warning-auth" onclick="authController.recoverPassword()">Lấy Lại Mật Khẩu</button>
+            <p class="auth-footer"><a href="#" onclick="authController.toggleForm('login')">⬅ Trở lại Đăng nhập</a></p>
+        </div>
+
+    </div>
+
+    <div id="app-view" class="hidden">
+        
+        <nav class="main-navbar">
+            <span class="brand-name"><i class="fas fa-book"></i> LibManager <span class="pro-tag">Pro</span></span>
+            <div class="user-control">
+                Xin chào, <b id="user-display"></b> | Vai trò: <span id="role-display" class="role-badge"></span>
+                <button class="btn-logout-main" onclick="authController.logout()"><i class="fas fa-power-off"></i></button>
+            </div>
+        </nav>
+
+        <div class="container-app">
+            
+            <aside class="side-sidebar">
+                <p class="sidebar-title">DANH MỤC</p>
+                <ul id="menu-list" class="sidebar-menu">
+                    </ul>
+                <div class="sidebar-footer">© 2024 Vĩnh Hưng</div>
+            </aside>
+
+            <main class="main-content">
+                <header class="content-header">
+                    <h2 id="page-title">Bảng điều khiển</h2>
+                </header>
+                <div id="page-content" class="content-body">
+                    </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -47,23 +47,50 @@ const authController = {
     },
 
     register() {
-        // ... (Giữ nguyên code phần register cũ của bạn) ...
-        const name = document.getElementById('reg-name').value;
-        const email = document.getElementById('reg-email').value;
-        const pass = document.getElementById('reg-pass').value;
-        const role = document.getElementById('reg-role').value;
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const pass = document.getElementById('reg-pass').value;
+    const passConfirm = document.getElementById('reg-pass-confirm').value;
 
-        if (!name || !email || !pass) return alert("Vui lòng điền đầy đủ!");
-        if (role === 'LIBRARIAN' && !/thuvien/i.test(email)) return alert("Tài khoản Thủ thư phải chứa 'thuvien'!");
+    // 1. Kiểm tra nhập liệu
+    if (!name || !email || !pass || !passConfirm) {
+        alert("Vui lòng nhập đầy đủ thông tin!");
+        return;
+    }
 
-        const users = JSON.parse(localStorage.getItem('lib_users'));
-        if (users.some(u => u.email === email)) return alert("Tài khoản đã tồn tại!");
+    // 2. Kiểm tra khớp mật khẩu
+    if (pass !== passConfirm) {
+        alert("Mật khẩu nhập lại không khớp!");
+        return;
+    }
 
-        users.push({ email, password: pass, role, name });
-        localStorage.setItem('lib_users', JSON.stringify(users));
-        alert("Đăng ký thành công!");
-        this.toggleForm('login');
-    },
+    const users = JSON.parse(localStorage.getItem('lib_users')) || [];
+
+    // 3. Kiểm tra trùng email
+    if (users.find(u => u.email === email)) {
+        alert("Tên đăng nhập/Email này đã tồn tại!");
+        return;
+    }
+
+    // 4. LOGIC QUAN TRỌNG: Tự động phân vai trò dựa trên mã thuvien_
+    let userRole = 'READER'; // Mặc định là Độc giả
+    if (email.startsWith('thuvien_')) {
+        userRole = 'LIBRARIAN'; // Nếu có tiền tố thuvien_ thì là Thủ thư
+    }
+
+    // 5. Lưu vào danh sách
+    users.push({ 
+        email: email, 
+        password: pass, 
+        role: userRole, 
+        name: name 
+    });
+
+    localStorage.setItem('lib_users', JSON.stringify(users));
+    
+    alert(`Đăng ký thành công tài khoản ${userRole === 'LIBRARIAN' ? 'Thủ thư' : 'Độc giả'}!`);
+    this.toggleForm('login');
+},
 
     login() {
         const email = document.getElementById('login-email').value;
@@ -127,6 +154,180 @@ const appController = {
     }
 
     menu.innerHTML = items.map(item => `<li onclick="appController['${item[1]}']()">${item[0]}</li>`).join('');
+},
+ //Sửa tên
+showEditName() {
+    const user = JSON.parse(sessionStorage.getItem('current_user'));
+    document.getElementById('page-title').innerText = "";
+    
+    let html = `
+        <div class="edit-name-card">
+            <h2>Sửa tên</h2>
+            
+            <div class="edit-input-group">
+                <span>Nhập tên bạn muốn sửa:</span>
+                <input type="text" id="new-name-input" value="${user.name}">
+            </div>
+
+            <div class="edit-btn-group">
+                <button class="btn-wireframe" onclick="appController.viewProfile()">Thoát</button>
+                <button class="btn-wireframe" onclick="appController.confirmEditName()">Sửa</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
+
+confirmEditName() {
+    const newName = document.getElementById('new-name-input').value;
+    if (!newName) return alert("Vui lòng nhập tên!");
+
+    let users = JSON.parse(localStorage.getItem('lib_users'));
+    let currentUser = JSON.parse(sessionStorage.getItem('current_user'));
+
+    // 1. Cập nhật trong danh sách người dùng của hệ thống
+    const userIdx = users.findIndex(u => u.email === currentUser.email);
+    if (userIdx !== -1) {
+        users[userIdx].name = newName;
+        localStorage.setItem('lib_users', JSON.stringify(users));
+
+        // 2. Cập nhật trong session hiện tại
+        currentUser.name = newName;
+        sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+
+        // 3. Cập nhật lại tên hiển thị trên thanh Navbar
+        document.getElementById('user-display').innerText = newName;
+
+        alert("Cập nhật tên thành công!");
+        this.viewProfile(); // Quay lại trang thông tin cá nhân
+    }
+},
+//sửa gmail
+showEditEmail() {
+    const user = JSON.parse(sessionStorage.getItem('current_user'));
+    document.getElementById('page-title').innerText = "Chỉnh Sửa Email";
+    
+    let html = `
+        <div class="edit-name-card">
+            <h2>Sửa Email</h2>
+            <div style="text-align: left; max-width: 300px; margin: 0 auto;">
+                <label>Email hiện tại:</label>
+                <div class="edit-input-group">
+                    <input type="text" id="current-email-display" value="${user.email}" disabled style="background: #eee;">
+                </div>
+                <label>Nhập Email mới:</label>
+                <div class="edit-input-group">
+                    <input type="email" id="new-email-input" placeholder="example@gmail.com">
+                </div>
+            </div>
+            <div class="edit-btn-group">
+                <button class="btn-wireframe" onclick="appController.viewProfile()">Thoát</button>
+                <button class="btn-wireframe" onclick="appController.saveEmail()">Sửa</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
+
+// Lưu Email mới vào CSDL (LocalStorage)
+saveEmail() {
+    const newEmail = document.getElementById('new-email-input').value.trim();
+    const user = JSON.parse(sessionStorage.getItem('current_user'));
+    let users = JSON.parse(localStorage.getItem('lib_users'));
+
+    // 1. Kiểm tra hợp lệ
+    if (!newEmail) return alert("Vui lòng nhập email mới!");
+    if (newEmail === user.email) return alert("Email mới phải khác email hiện tại!");
+    
+    // Kiểm tra xem email mới đã có ai dùng chưa
+    if (users.some(u => u.email === newEmail)) {
+        return alert("Email này đã tồn tại trong hệ thống!");
+    }
+
+    // 2. Cập nhật trong danh sách users
+    const userIndex = users.findIndex(u => u.email === user.email);
+    if (userIndex !== -1) {
+        users[userIndex].email = newEmail;
+        localStorage.setItem('lib_users', JSON.stringify(users));
+
+        // 3. Cập nhật cả session hiện tại để giao diện không bị lỗi
+        user.email = newEmail;
+        sessionStorage.setItem('current_user', JSON.stringify(user));
+
+        alert("Cập nhật Email thành công!");
+        this.viewProfile(); // Quay lại trang cá nhân
+    }
+},
+showChangePassword() {
+    document.getElementById('page-title').innerText = "Đổi Mật Khẩu";
+    
+    let html = `
+        <div class="edit-name-card">
+            <h2>Đổi mật khẩu</h2>
+            
+            <div style="text-align: left; max-width: 350px; margin: 0 auto;">
+                <div class="edit-input-group">
+                    <span style="width: 150px;">Mật khẩu cũ:</span>
+                    <input type="password" id="old-pass" placeholder="******">
+                </div>
+
+                <div class="edit-input-group">
+                    <span style="width: 150px;">Mật khẩu mới:</span>
+                    <input type="password" id="new-pass" placeholder="******">
+                </div>
+
+                <div class="edit-input-group">
+                    <span style="width: 150px;">Nhập lại MK mới:</span>
+                    <input type="password" id="confirm-new-pass" placeholder="******">
+                </div>
+            </div>
+
+            <div class="edit-btn-group" style="margin-top: 30px;">
+                <button class="btn-wireframe" onclick="appController.viewProfile()">Thoát</button>
+                <button class="btn-wireframe" onclick="appController.savePassword()">Sửa</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
+
+// Xử lý lưu mật khẩu mới
+savePassword() {
+    const oldPass = document.getElementById('old-pass').value;
+    const newPass = document.getElementById('new-pass').value;
+    const confirmPass = document.getElementById('confirm-new-pass').value;
+    
+    const currentUser = JSON.parse(sessionStorage.getItem('current_user'));
+    let users = JSON.parse(localStorage.getItem('lib_users'));
+
+    // 1. Kiểm tra dữ liệu đầu vào
+    if (!oldPass || !newPass || !confirmPass) {
+        return alert("Vui lòng nhập đầy đủ các trường!");
+    }
+
+    // 2. Kiểm tra mật khẩu cũ có đúng không
+    if (oldPass !== currentUser.password) {
+        return alert("Mật khẩu cũ không chính xác!");
+    }
+
+    // 3. Kiểm tra mật khẩu mới và xác nhận có khớp không
+    if (newPass !== confirmPass) {
+        return alert("Mật khẩu mới và nhập lại không khớp!");
+    }
+
+    // 4. Cập nhật vào LocalStorage
+    const userIdx = users.findIndex(u => u.email === currentUser.email);
+    if (userIdx !== -1) {
+        users[userIdx].password = newPass;
+        localStorage.setItem('lib_users', JSON.stringify(users));
+
+        // Cập nhật lại session hiện tại
+        currentUser.password = newPass;
+        sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+
+        alert("Đổi mật khẩu thành công!");
+        this.viewProfile();
+    }
 },
 viewOverdueReport() {
     document.getElementById('page-title').innerText = "Danh Sách Sách Quá Hạn";
@@ -225,19 +426,67 @@ renderBookTable(books) {
 
     // UC2: Đặt lịch mượn sách
     reserveBook(bookId, bookName) {
-        const user = JSON.parse(sessionStorage.getItem('current_user'));
-        const reservations = JSON.parse(localStorage.getItem('lib_reservations'));
+        document.getElementById('page-title').innerText = "Xác Nhận Mượn Sách";
         
-        reservations.push({
+        const today = new Date();
+        const requestDate = today.toLocaleDateString('vi-VN');
+        
+        // Tính ngày đến mượn (mặc định là ngày mai)
+        const pickupDate = new Date(today);
+        pickupDate.setDate(today.getDate() + 1);
+        const pickupDateStr = pickupDate.toLocaleDateString('vi-VN');
+
+        let html = `
+            <div class="borrow-card">
+                <h2>Yêu cầu mượn sách</h2>
+                
+                <div class="borrow-info-row">
+                    <span class="borrow-info-label">Ngày yêu cầu:</span>
+                    <span class="borrow-info-value">${requestDate}</span>
+                </div>
+                
+                <div class="borrow-info-row">
+                    <span class="borrow-info-label">Hạn mượn (kể từ ngày nhận):</span>
+                    <span class="borrow-info-value">90 ngày</span>
+                </div>
+                
+                <div class="borrow-info-row">
+                    <span class="borrow-info-label">Sách muốn mượn:</span>
+                    <span class="borrow-info-value">${bookName}</span>
+                </div>
+                
+                <div class="borrow-info-row">
+                    <span class="borrow-info-label">Ngày đến mượn sách:</span>
+                    <span class="borrow-info-value">${pickupDateStr}</span>
+                </div>
+
+                <p class="borrow-note">Lưu ý: Nếu không có mặt vào ngày mượn sách, yêu cầu sẽ tự động bị hủy.</p>
+
+                <button class="btn-confirm-borrow" onclick="appController.confirmReservation('${bookId}', '${bookName}', '${pickupDateStr}')">
+                    Xác nhận gửi yêu cầu
+                </button>
+            </div>
+        `;
+        document.getElementById('page-content').innerHTML = html;
+    },
+    confirmReservation(bookId, bookName, pickupDate) {
+        const user = JSON.parse(sessionStorage.getItem('current_user'));
+        let reservations = JSON.parse(localStorage.getItem('lib_reservations')) || [];
+        
+        const newReservation = {
             userEmail: user.email,
             bookId: bookId,
             bookName: bookName,
-            date: new Date().toLocaleDateString(),
+            date: new Date().toLocaleDateString('vi-VN'),
+            pickupDate: pickupDate,
             status: 'Đang chờ duyệt'
-        });
+        };
         
+        reservations.push(newReservation);
         localStorage.setItem('lib_reservations', JSON.stringify(reservations));
+        
         alert(`Bạn đã đặt lịch mượn cuốn "${bookName}" thành công! Vui lòng chờ thủ thư duyệt.`);
+        this.viewBooks(); // Quay lại trang danh sách sách
     },
     toggleFavorite(bookId, bookName) {
         const user = JSON.parse(sessionStorage.getItem('current_user'));
@@ -264,44 +513,79 @@ renderBookTable(books) {
     // UC3: Xem thông tin cá nhân
     // UC3: Xem thông tin cá nhân (Đã cập nhật hiển thị Hạn trả)
     viewProfile() {
-        document.getElementById('page-title').innerText = "Thông Tin Cá Nhân";
-        const user = JSON.parse(sessionStorage.getItem('current_user'));
-        const reservations = JSON.parse(localStorage.getItem('lib_reservations')).filter(r => r.userEmail === user.email);
+    document.getElementById('page-title').innerText = "Thông Tin Cá Nhân";
+    const user = JSON.parse(sessionStorage.getItem('current_user'));
+    
+    // Lấy danh sách sách đã mượn (Đã duyệt) từ LocalStorage
+    const allReservations = JSON.parse(localStorage.getItem('lib_reservations')) || [];
+    const myBooks = allReservations
+        .filter(r => r.userEmail === user.email && r.status === 'Đã duyệt')
+        .map(r => r.bookName);
 
-        let html = `
-            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <p><b>Họ và tên:</b> ${user.name}</p>
-                <p><b>Email:</b> ${user.email}</p>
-                <p><b>Trạng thái:</b> Đang hoạt động</p>
+    let html = `
+        <div class="content-body">
+            <div style="margin-bottom: 25px;">
+                <p><b>Họ và tên:</b> ${user.name} 
+                    <button class="btn-warning" style="margin-left:10px; padding: 4px 10px; font-size: 12px;" 
+                        onclick="appController.showEditName()">
+                        <i class="fas fa-edit"></i> Sửa tên
+                    </button>
+                </p>
+                
+                <p><b>Email:</b> ${user.email} 
+                    <button class="btn-warning" style="margin-left:10px; padding: 4px 10px; font-size: 12px;" 
+                        onclick="appController.showEditEmail()">
+                    <i class="fas fa-edit"></i> Sửa email
+                </button>
+            </p>
+            <p><b>Mật khẩu:</b> ******** <button class="btn-warning" style="margin-left:10px; padding: 4px 10px; font-size: 12px;" 
+                        onclick="appController.showChangePassword()">
+                        <i class="fas fa-key"></i> Đổi MK
+                    </button>
+                </p>
+                
+                <p><b>Số sách đang mượn:</b> <span class="role-badge">${myBooks.length}</span></p>
             </div>
-            <h3>Sách đang đặt mượn / Đã mượn</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Tên sách</th>
-                        <th>Ngày đặt</th>
-                        <th>Hạn trả</th>
-                        <th>Trạng thái</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${reservations.map(r => `
-                        <tr>
-                            <td>${r.bookName}</td>
-                            <td>${r.date}</td>
-                            <td><b style="color: #2c3e50">${r.dueDate || '---'}</b></td>
-                            <td>
-                                <b style="color: ${r.status === 'Đã duyệt' ? '#27ae60' : '#e74c3c'}">
-                                    ${r.status}
-                                </b>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-        document.getElementById('page-content').innerHTML = html;
-    },
+
+            <hr border="1" style="border-color: #eee; margin: 20px 0;">
+            
+            <h4>DANH SÁCH SÁCH ĐÃ MƯỢN</h4>
+            <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #f9f9f9; min-height: 100px;">
+                ${myBooks.length > 0 
+                    ? myBooks.map(name => `<p style="margin: 5px 0;"><i class="fas fa-check-circle" style="color:green"></i> ${name}</p>`).join('') 
+                    : '<p style="color:gray">Bạn chưa có sách nào được duyệt mượn.</p>'}
+            </div>
+
+            <button class="btn-delete" style="margin-top: 25px; width: 100%;" onclick="authController.logout()">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất tài khoản
+            </button>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
+
+// Hàm hỗ trợ sửa thông tin ngay tại trang profile
+editProfile(field) {
+    const user = JSON.parse(sessionStorage.getItem('current_user'));
+    const newValue = prompt(`Nhập ${field === 'name' ? 'họ tên' : 'email'} mới:`, field === 'name' ? user.name : user.email);
+    
+    if (newValue) {
+        let users = JSON.parse(localStorage.getItem('lib_users'));
+        const userIdx = users.findIndex(u => u.email === user.email);
+        
+        if (userIdx !== -1) {
+            users[userIdx][field === 'name' ? 'name' : 'email'] = newValue;
+            localStorage.setItem('lib_users', JSON.stringify(users));
+            
+            // Cập nhật lại session hiện tại
+            user[field === 'name' ? 'name' : 'email'] = newValue;
+            sessionStorage.setItem('current_user', JSON.stringify(user));
+            
+            alert("Cập nhật thành công!");
+            this.viewProfile(); // Tải lại giao diện
+        }
+    }
+},
     viewHistory() {
     document.getElementById('page-title').innerText = "Lịch Sử Trả Sách";
     const user = JSON.parse(sessionStorage.getItem('current_user'));
@@ -572,33 +856,158 @@ returnBook(index) {
 
     // UC7: Quản lý Độc giả và Thủ thư
     manageUsers() {
-        document.getElementById('page-title').innerText = "Quản Lý Tài Khoản";
-        const users = JSON.parse(localStorage.getItem('lib_users'));
-        let html = `<table>
-            <thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Thao tác</th></tr></thead>
-            <tbody>
-                ${users.map((u, idx) => `
-                    <tr><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td>
-                    <td><button class="btn-delete" onclick="alert('Xóa user index: ${idx}')">Xóa</button></td></tr>
-                `).join('')}
-            </tbody>
-        </table>`;
-        document.getElementById('page-content').innerHTML = html;
-    },
+    document.getElementById('page-title').innerText = "Quản Lý Người Dùng";
+    const users = JSON.parse(localStorage.getItem('lib_users')) || [];
 
-    // UC8: Thống kê
-    viewStats() {
-        document.getElementById('page-title').innerText = "Thống Kê Doanh Thu";
-        document.getElementById('page-content').innerHTML = `
-            <table style="width: 50%;">
-                <thead><tr><th>Tháng</th><th>Số sách mượn</th><th>Tiền phạt/Doanh thu</th></tr></thead>
+    let html = `
+        <div class="content-body">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Họ và tên</th>
+                        <th>Email</th>
+                        <th>Vai trò</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    <tr><td>Tháng 1</td><td>120 cuốn</td><td>200,000 đ</td></tr>
-                    <tr><td>Tháng 2</td><td>140 cuốn</td><td>300,000 đ</td></tr>
-                    <tr><td>Tháng 3</td><td>130 cuốn</td><td>150,000 đ</td></tr>
+                    ${users.map((u, index) => `
+                        <tr>
+                            <td>
+                                ${u.name} 
+                                <button class="btn-admin-action" onclick="appController.adminEditUser(${index}, 'name')">Sửa tên</button>
+                            </td>
+                            <td>
+                                ${u.email} 
+                                <button class="btn-admin-action" onclick="appController.adminEditUser(${index}, 'email')">Sửa email</button>
+                            </td>
+                            <td>
+                                <span class="role-badge">${u.role}</span>
+                            </td>
+                            <td>
+                                <button class="btn-delete" style="padding: 5px 15px;" onclick="appController.adminDeleteUser(${index})">Xóa</button>
+                            </td>
+                        </tr>
+                    `).join('')}
                 </tbody>
-            </table>`;
+            </table>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
+
+// Hàm hỗ trợ Admin sửa thông tin bất kỳ ai
+adminEditUser(index, field) {
+    let users = JSON.parse(localStorage.getItem('lib_users'));
+    const oldValue = users[index][field];
+    const newValue = prompt(`Nhập ${field === 'name' ? 'Họ tên' : 'Email'} mới cho ${oldValue}:`, oldValue);
+
+    if (newValue && newValue !== oldValue) {
+        users[index][field] = newValue;
+        localStorage.setItem('lib_users', JSON.stringify(users));
+        alert("Cập nhật thành công!");
+        this.manageUsers(); // Tải lại bảng
     }
+},
+
+// Hàm hỗ trợ Admin xóa người dùng
+adminDeleteUser(index) {
+    if (confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
+        let users = JSON.parse(localStorage.getItem('lib_users'));
+        users.splice(index, 1);
+        localStorage.setItem('lib_users', JSON.stringify(users));
+        this.manageUsers(); // Tải lại bảng
+    }
+},
+
+viewStats() {
+    document.getElementById('page-title').innerText = "Thống Kê Hệ Thống Thực Tế";
+    
+    // 1. Lấy dữ liệu thực từ LocalStorage
+    const allReservations = JSON.parse(localStorage.getItem('lib_reservations')) || [];
+    const allBooks = JSON.parse(localStorage.getItem('lib_books')) || [];
+    
+    // 2. Khởi tạo đối tượng lưu trữ thống kê theo tháng
+    // Chúng ta sẽ thống kê dựa trên các yêu cầu đã duyệt
+    const monthlyStats = {};
+
+    allReservations.forEach(res => {
+        // Lấy tháng từ ngày mượn (định dạng yyyy-mm-dd)
+        const month = res.borrowDate ? "Tháng " + (new Date(res.borrowDate).getMonth() + 1) : "Chưa xác định";
+        
+        if (!monthlyStats[month]) {
+            monthlyStats[month] = { borrowed: 0, returned: 0, damaged: 0, penalty: 0 };
+        }
+
+        // Đếm số lượng mượn
+        monthlyStats[month].borrowed++;
+
+        // Nếu đã trả thì đếm trả
+        if (res.status === 'Đã trả') {
+            monthlyStats[month].returned++;
+        }
+
+        // TÍNH TIỀN PHẠT THỰC TẾ
+        // Giả sử: Quá hạn mỗi ngày phạt 5.000đ, Sách hỏng phạt 50.000đ
+        let currentPenalty = 0;
+        
+        // Check quá hạn (nếu có ngày trả thực tế > ngày hẹn trả)
+        if (res.returnDate && res.dueDate) {
+            const actual = new Date(res.returnDate);
+            const due = new Date(res.dueDate);
+            if (actual > due) {
+                const diffDays = Math.ceil((actual - due) / (1000 * 60 * 60 * 24));
+                currentPenalty += diffDays * 5000; 
+            }
+        }
+
+        // Check hư hỏng (nếu bạn có trường note hoặc condition trong reservation)
+        if (res.condition === 'Hư hỏng') {
+            currentPenalty += 50000;
+            monthlyStats[month].damaged++;
+        }
+
+        monthlyStats[month].penalty += currentPenalty;
+    });
+
+    // 3. Tạo HTML bảng
+    let tableRows = Object.keys(monthlyStats).map(month => {
+        const s = monthlyStats[month];
+        return `
+            <tr>
+                <td>${month}</td>
+                <td>${s.borrowed}</td>
+                <td>${s.returned}</td>
+                <td style="color: red;">${s.damaged}</td>
+                <td>${s.penalty.toLocaleString()} đ</td>
+                <td>--</td> <td>--</td>
+            </tr>
+        `;
+    }).join('');
+
+    let html = `
+        <div class="content-body">
+            <p style="font-style: italic; color: #666;">* Tiền phạt được tính tự động dựa trên ngày trả thực tế và tình trạng sách.</p>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Tháng</th>
+                        <th>Đã mượn</th>
+                        <th>Đã trả</th>
+                        <th>Hư hỏng</th>
+                        <th>Tiền phạt</th>
+                        <th>Mua mới</th>
+                        <th>Tiền nhập sách</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows || '<tr><td colspan="7">Chưa có dữ liệu giao dịch</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+    document.getElementById('page-content').innerHTML = html;
+},
 };
 
 window.onload = () => {
